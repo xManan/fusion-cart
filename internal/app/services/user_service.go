@@ -61,7 +61,7 @@ func CreateUnverifiedUser(u *models.UnverifiedUser) (string, error) {
 }
 
 // TODO
-func SendVerificationLink(email string, token string) error {
+func SendVerificationLink(email, token string) error {
 	return nil
 }
 
@@ -107,7 +107,7 @@ func MoveUnverifiedUserToUsers(u *models.UnverifiedUser) error {
 	return nil
 }
 
-func VerifyCredentials(email string, password string) (string, error) {
+func VerifyCredentials(email, password string) (string, error) {
 	var result struct {
 		Id       primitive.ObjectID `bson:"_id"`
 		Email    string             `bson:"email"`

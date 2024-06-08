@@ -2,15 +2,19 @@ package merchant
 
 import (
 	"compress/gzip"
+	"context"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
+	browser "github.com/EDDYCJY/fake-useragent"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/xManan/fusion-cart/internal/app/models"
 )
@@ -39,13 +43,9 @@ func FetchItemFromAmazon(itemRef string) (models.Item, error) {
 	htmlPage, err := FetchItemPageFromAmazon(itemRef)
 
 	/*----------------------------------------------------*/
-	fn := AMAZON + "_" + itemRef + ".html"                //
-	_, err = os.Stat(fn)                                  //
-	if os.IsExist(err) {                                  //
-		os.Remove(fn)                                     //
-	}                                                     //
-	fi, _ := os.Create(AMAZON + "_" + itemRef + ".html")  //
-	fi.WriteString(htmlPage)                              //
+	fn := "internal/app/services/merchant/pages/" + AMAZON + "_" + itemRef + ".html"
+	fi, _ := os.Create(fn)   //
+	fi.WriteString(htmlPage) //
 	//----------------------------------------------------//
 
 	if err != nil {
@@ -72,21 +72,26 @@ func FetchItemFromAmazon(itemRef string) (models.Item, error) {
 	rating := strings.TrimSpace(doc.Find("#acrPopover a span").First().Text())
 	ratingF, _ := strconv.ParseFloat(rating, 64)
 
-	return models.Item{ 
+	return models.Item{
 		Merchant: AMAZON,
-		ItemRef: asin,
-		Name: title,
-		Price: priceF,
+		ItemRef:  asin,
+		Name:     title,
+		Price:    priceF,
 		OldPrice: priceF,
-		Url: url,
-		ImgUrl: imgUrl,
-		Rating: ratingF,
+		Url:      url,
+		ImgUrl:   imgUrl,
+		Rating:   ratingF,
 	}, nil
 }
 
 func FetchItemPageFromAmazon(itemRef string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	client := &http.Client{
+		Timeout: 60 * time.Second,
+	}
 	url := AMAZON_BASE_URL + itemRef
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -103,9 +108,12 @@ func FetchItemPageFromAmazon(itemRef string) (string, error) {
 	req.Header.Set("sec-gpc", "1")
 	req.Header.Set("upgrade-insecure-requests", "1")
 	// req.Header.Set("user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-	req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.3")
+	// req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.3")
+	// req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.")
+	ua := browser.Computer()
+	log.Println(ua)
+	req.Header.Set("user-agent", ua)
 
-	client := http.DefaultClient
 	res, err := client.Do(req)
 
 	if err != nil {
@@ -127,4 +135,3 @@ func FetchItemPageFromAmazon(itemRef string) (string, error) {
 	}
 	return string(body), nil
 }
-
